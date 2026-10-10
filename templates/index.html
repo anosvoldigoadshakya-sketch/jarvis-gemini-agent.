@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis | Gemini Desktop Agent</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#131b30;--line:#293653;--text:#edf3ff;--muted:#9eacc8;--accent:#78a9ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#17284a 0,#0b1020 52%);color:var(--text);font:16px/1.5 system-ui,Segoe UI,sans-serif}
+main{max-width:850px;margin:0 auto;padding:40px 18px 60px}.eyebrow{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:.75rem;font-weight:700}
+h1{font-size:clamp(2.4rem,7vw,4.4rem);line-height:1;margin:12px 0;letter-spacing:-.05em}.sub{color:var(--muted);max-width:650px}
+.panel{background:rgba(19,27,48,.94);border:1px solid var(--line);border-radius:20px;padding:22px;margin-top:22px;box-shadow:0 18px 55px #0002}
+label{display:block;font-size:.9rem;color:#c8d5ee;margin:0 0 7px}input,textarea{width:100%;border:1px solid #354463;background:#0b1224;color:var(--text);border-radius:11px;padding:12px 13px;font:inherit;outline:none}
+textarea{min-height:110px;resize:vertical}input:focus,textarea:focus{border-color:var(--accent)}.field{margin-bottom:16px}
+button{border:0;border-radius:11px;background:var(--accent);color:#071122;font-weight:750;padding:12px 17px;font:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:wait}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hint,.statusline{color:var(--muted);font-size:.88rem}
+.warning{border-left:3px solid #e6b85c;padding:10px 13px;background:#2a2419;color:#f7dfaa;border-radius:7px;font-size:.9rem;margin-top:16px}
+.tasks{display:grid;gap:10px;margin-top:14px}.task{border:1px solid var(--line);border-radius:12px;padding:14px;overflow-wrap:anywhere}
+.tasktop{display:flex;gap:10px;align-items:center;justify-content:space-between}.pill{border-radius:999px;background:#24314c;color:#d4e3ff;padding:3px 9px;font-size:.75rem;white-space:nowrap}
+.empty{color:var(--muted);padding:16px 0}#message{margin-top:12px;min-height:24px;color:#b9d0ff}footer{color:var(--muted);font-size:.8rem;margin-top:24px}
+</style></head><body><main>
+<div class="eyebrow">Gemini · Local desktop automation</div><h1>JARVIS<span style="color:var(--accent)">.</span></h1>
+<p class="sub">Send a task to your own Windows agent. The website queues requests; your local agent must be running, and it asks you before every computer action.</p>
+<section class="panel">
+<div class="field"><label for="access">Website access token</label><input id="access" type="password" autocomplete="off" placeholder="Paste JARVIS_WEB_TOKEN from Render"></div>
+<div class="field"><label for="goal">What should Jarvis do?</label><textarea id="goal" maxlength="500" placeholder="Example: Open Notepad and type a short checklist for my school project."></textarea><div class="hint">Max 500 characters. Avoid passwords, banking, purchases, private messages or destructive tasks.</div></div>
+<div class="row"><button id="submit">Queue task</button><button id="refresh" type="button" style="background:#273753;color:var(--text)">Refresh status</button></div>
+<div id="message" role="status" aria-live="polite"></div><div class="warning"><strong>Local confirmation is required.</strong> Keep your PC unlocked and the agent terminal open. Do not use it on a computer with sensitive data you cannot risk exposing.</div>
+</section><section class="panel"><div class="row"><h2 style="margin:0;font-size:1.2rem">Recent tasks</h2><span class="statusline">In-memory demo queue</span></div><div id="tasks" class="tasks"><div class="empty">Enter your access token and refresh to load tasks.</div></div></section>
+<footer>Prototype: task history may reset when the free service restarts. Screenshots are processed locally by the agent and sent to Gemini for reasoning.</footer></main>
+<script>
+const access=document.getElementById('access'),goal=document.getElementById('goal'),message=document.getElementById('message'),tasksBox=document.getElementById('tasks'),submit=document.getElementById('submit');
+function authHeaders(){return {'Authorization':'Bearer '+access.value.trim(),'Content-Type':'application/json'}}
+async function refreshTasks(){if(!access.value.trim()){message.textContent='Enter the website access token first.';return}
+try{const res=await fetch('/api/tasks',{headers:authHeaders()}),data=await res.json();if(!res.ok)throw new Error(data.error||'Could not load tasks.');
+tasksBox.replaceChildren();if(!data.tasks.length){tasksBox.innerHTML='<div class="empty">No tasks yet.</div>';return}
+for(const task of data.tasks){const card=document.createElement('div');card.className='task';const top=document.createElement('div');top.className='tasktop';const title=document.createElement('strong');title.textContent=task.goal;const pill=document.createElement('span');pill.className='pill';pill.textContent=task.status;top.append(title,pill);const info=document.createElement('div');info.className='hint';info.textContent=(task.message||'')+' · ID '+task.id;card.append(top,info);tasksBox.append(card)}
+}catch(err){message.textContent=err.message}}
+submit.addEventListener('click',async()=>{if(!access.value.trim()){message.textContent='Enter the website access token first.';return}if(!goal.value.trim()){message.textContent='Describe a task first.';return}
+submit.disabled=true;message.textContent='Sending task…';try{const res=await fetch('/api/tasks',{method:'POST',headers:authHeaders(),body:JSON.stringify({goal:goal.value.trim()})}),data=await res.json();if(!res.ok)throw new Error(data.error||'Could not queue task.');message.textContent='Task queued. Make sure your local agent is running.';goal.value='';await refreshTasks()}catch(err){message.textContent=err.message}finally{submit.disabled=false}});
+document.getElementById('refresh').addEventListener('click',refreshTasks);
+</script></body></html>
