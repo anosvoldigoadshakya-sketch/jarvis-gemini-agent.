@@ -1,0 +1,1 @@
+Jarvis Gemini agent deployment package. See project files for setup.
